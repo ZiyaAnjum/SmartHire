@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const AppError = require('../utils/AppError');
 
 const protect = async (req, res, next) => {
   let token;
@@ -11,33 +12,29 @@ const protect = async (req, res, next) => {
     try {
       token = req.headers.authorization.split(' ')[1];
 
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your_jwt_secret_key_here');
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'smarthire_jwt_secret_key');
 
       req.user = await User.findById(decoded.id).select('-password');
 
       if (!req.user) {
-        return res.status(401).json({
-          success: false,
-          message: 'Not authorized, user not found',
-        });
+        return next(new AppError('Not authorized, user account no longer exists', 401));
       }
 
-      next();
+      return next();
     } catch (error) {
-      console.error(error);
-      return res.status(401).json({
-        success: false,
-        message: 'Not authorized, token failed',
-      });
+      return next(new AppError('Not authorized, token validation failed', 401));
     }
   }
 
   if (!token) {
-    return res.status(401).json({
-      success: false,
-      message: 'Not authorized, no token provided',
-    });
+    return next(new AppError('Not authorized, please provide a valid Bearer token', 401));
   }
 };
 
-module.exports = { protect };
+// Aliases for spec naming compliance
+const verifyToken = protect;
+
+module.exports = {
+  protect,
+  verifyToken,
+};

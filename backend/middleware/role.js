@@ -1,22 +1,28 @@
+const AppError = require('../utils/AppError');
+
 const authorize = (...roles) => {
   return (req, res, next) => {
-
     if (!req.user) {
-      return res.status(401).json({
-        success: false,
-        message: 'Not authorized, login required',
-      });
+      return next(new AppError('Not authorized, login session required', 401));
     }
 
     if (!roles.includes(req.user.role)) {
-      return res.status(403).json({
-        success: false,
-        message: `User role '${req.user.role}' is not authorized to access this route`,
-      });
+      return next(
+        new AppError(
+          `User role '${req.user.role}' is not authorized to access this resource. Required role: ${roles.join(' or ')}`,
+          403
+        )
+      );
     }
 
     next();
   };
 };
 
-module.exports = { authorize };
+// Aliases for spec naming compliance
+const requireRole = authorize;
+
+module.exports = {
+  authorize,
+  requireRole,
+};

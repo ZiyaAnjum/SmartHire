@@ -1,27 +1,49 @@
+const AppError = require('../utils/AppError');
+
 const errorHandler = (err, req, res, next) => {
-  let error = { ...err };
-  error.message = err.message;
+  let statusCode = err.statusCode || 500;
+  let message = err.message || 'Internal Server Error';
 
-  console.error(err.stack || err);
-
+  // Handle Mongoose CastError (invalid ObjectId)
   if (err.name === 'CastError') {
-    const message = `Resource not found with id of ${err.value}`;
-    error = { message, statusCode: 404 };
+    message = `Resource not found with invalid id: ${err.value}`;
+    statusCode = 404;
   }
 
+  // Handle Mongoose Duplicate Key error (11000)
   if (err.code === 11000) {
-    const message = 'Duplicate field value entered. Resource already exists.';
-    error = { message, statusCode: 400 };
+    const field = Object.keys(err.keyValue || {})[0] || 'field';
+    message = `Duplicate value entered for ${field}. A resource with this ${field} already exists.`;
+    statusCode = 400;
   }
 
+  // Handle Mongoose Schema Validation Error
   if (err.name === 'ValidationError') {
-    const message = Object.values(err.errors).map((val) => val.message).join(', ');
-    error = { message, statusCode: 400 };
+    message = Object.values(err.errors)
+      .map((val) => val.message)
+      .join(', ');
+    statusCode = 400;
   }
 
-  res.status(error.statusCode || 500).json({
+  // Handle JSON Web Token Errors
+  if (err.name === 'JsonWebTokenError') {
+    message = 'Invalid authentication token. Please log in again.';
+    statusCode = 401;
+  }
+
+  if (err.name === 'TokenExpiredError') {
+    message = 'Authentication token expired. Please log in again.';
+    statusCode = 401;
+  }
+
+  if (process.env.NODE_ENV !== 'production' && statusCode === 500) {
+    console.error('Unhandled Error Details:', err);
+  }
+
+  res.status(statusCode).json({
     success: false,
-    message: error.message || 'Server Error',
+    message,
+    ...(process.env.NODE_ENV === 'development' ? { stack: err.stack } : {}),
   });
 };
 

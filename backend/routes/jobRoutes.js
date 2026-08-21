@@ -6,17 +6,20 @@ const {
   getJob,
   updateJob,
   deleteJob,
+  getJobApplicationsCount,
 } = require('../controllers/jobController');
-const { protect } = require('../middleware/auth');
-const { authorize } = require('../middleware/role');
+const { protect, verifyToken } = require('../middleware/auth');
+const { authorize, requireRole } = require('../middleware/role');
+const { validate, createJobSchema, updateJobSchema } = require('../middleware/validation');
 
 // Public routes
 router.get('/', getJobs);
 router.get('/:id', getJob);
 
-// Protected employer-only routes
-router.post('/', protect, authorize('employer'), createJob);
-router.put('/:id', protect, authorize('employer'), updateJob);
+// Employer-only routes with ownership enforcement
+router.post('/', protect, authorize('employer'), validate(createJobSchema), createJob);
+router.put('/:id', protect, authorize('employer'), validate(updateJobSchema), updateJob);
 router.delete('/:id', protect, authorize('employer'), deleteJob);
+router.get('/:id/applications-count', protect, authorize('employer'), getJobApplicationsCount);
 
 module.exports = router;

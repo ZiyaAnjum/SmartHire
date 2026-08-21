@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const inMemoryStore = require('./inMemoryStore');
 
 const UserSchema = new mongoose.Schema(
   {
@@ -33,15 +34,27 @@ const UserSchema = new mongoose.Schema(
         message: 'Role must be either candidate or employer',
       },
     },
+    headline: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    bio: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    skills: {
+      type: [String],
+      default: [],
+    },
   },
   {
     timestamps: true,
   }
 );
 
-
 UserSchema.pre('save', async function (next) {
-
   if (!this.isModified('password')) {
     return next();
   }
@@ -51,9 +64,21 @@ UserSchema.pre('save', async function (next) {
   next();
 });
 
-
 UserSchema.methods.matchPassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
-module.exports = mongoose.model('User', UserSchema);
+const MongooseUserModel = mongoose.models.User || mongoose.model('User', UserSchema);
+
+const UserProxy = new Proxy(MongooseUserModel, {
+  get(target, prop) {
+    if (mongoose.connection.readyState !== 1) {
+      if (prop in inMemoryStore.User) {
+        return inMemoryStore.User[prop];
+      }
+    }
+    return target[prop];
+  },
+});
+
+module.exports = UserProxy;

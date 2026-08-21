@@ -34,4 +34,19 @@ const ApplicationSchema = new mongoose.Schema(
 
 ApplicationSchema.index({ job_id: 1, candidate_id: 1 }, { unique: true });
 
-module.exports = mongoose.model('Application', ApplicationSchema);
+const MongooseApplicationModel = mongoose.models.Application || mongoose.model('Application', ApplicationSchema);
+
+const inMemoryStore = require('./inMemoryStore');
+
+const ApplicationProxy = new Proxy(MongooseApplicationModel, {
+  get(target, prop) {
+    if (mongoose.connection.readyState !== 1) {
+      if (prop in inMemoryStore.Application) {
+        return inMemoryStore.Application[prop];
+      }
+    }
+    return target[prop];
+  },
+});
+
+module.exports = ApplicationProxy;

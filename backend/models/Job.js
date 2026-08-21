@@ -19,7 +19,8 @@ const JobSchema = new mongoose.Schema(
     },
     salary: {
       type: String,
-      required: [true, 'Please add a salary range or amount'],
+      required: false,
+      default: 'Competitive / Unspecified',
       trim: true,
     },
     description: {
@@ -49,4 +50,19 @@ const JobSchema = new mongoose.Schema(
   }
 );
 
-module.exports = mongoose.model('Job', JobSchema);
+const MongooseJobModel = mongoose.models.Job || mongoose.model('Job', JobSchema);
+
+const inMemoryStore = require('./inMemoryStore');
+
+const JobProxy = new Proxy(MongooseJobModel, {
+  get(target, prop) {
+    if (mongoose.connection.readyState !== 1) {
+      if (prop in inMemoryStore.Job) {
+        return inMemoryStore.Job[prop];
+      }
+    }
+    return target[prop];
+  },
+});
+
+module.exports = JobProxy;
