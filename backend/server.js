@@ -27,7 +27,11 @@ const {
 const app = express();
 
 app.use(express.json());
-app.use(cors());
+
+app.use(cors({
+  origin: 'https://smart-hire-green.vercel.app',
+  credentials: true
+}));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
